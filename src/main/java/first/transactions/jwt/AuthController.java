@@ -2,6 +2,10 @@ package first.transactions.jwt;
 
 import first.transactions.model.User;
 import first.transactions.repository.UserRepository;
+import first.transactions.dto.UserRegistrationDto;
+import first.transactions.dto.UserResponseDto;
+import first.transactions.dto.LoginRequestDto;
+import first.transactions.dto.LoginResponseDto;
 import first.transactions.jwt.JwtUtil;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,8 +26,8 @@ public class AuthController {
         this.passwordEncoder = passwordEncoder;
     }
 
-    @PostMapping
-    public String login(@RequestBody User loginRequest) {
+    @PostMapping("/login")
+    public LoginResponseDto login(@Valid @RequestBody LoginRequestDto loginRequest) {
         User user = userRepository.findByUsername(loginRequest.getUsername())
                 .orElseThrow(() -> new UsernameNotFoundException("Username not found"));
 
@@ -31,29 +35,50 @@ public class AuthController {
         if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
             throw new RuntimeException("Wrong password");
         }
-        return jwtUtil.generateToken(loginRequest.getUsername());
+        
+        // Generate token
+        String token = jwtUtil.generateToken(loginRequest.getUsername());
+        
+        // Return structured response
+        return new LoginResponseDto(
+            token,
+            user.getId(),
+            user.getUsername(),
+            user.getRole(),
+            "Login successful"
+        );
     }
 
     @PostMapping("/register")
-    public User createUser(@Valid @RequestBody User user) {
+    public UserResponseDto createUser(@Valid @RequestBody UserRegistrationDto registrationDto) {
         // Check if username already exists
-        if (userRepository.findByUsername(user.getUsername()).isPresent()) {
+        if (userRepository.findByUsername(registrationDto.getUsername()).isPresent()) {
             throw new RuntimeException("Username already exists");
         }
         
         // Check if email already exists  
-        if (userRepository.findByEmail(user.getEmail()).isPresent()) {
+        if (userRepository.findByEmail(registrationDto.getEmail()).isPresent()) {
             throw new RuntimeException("Email already exists");
         }
         
-        // Hash the password before saving
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        // Create new user from DTO
+        User user = new User();
+        user.setUsername(registrationDto.getUsername());
+        user.setEmail(registrationDto.getEmail());
+        user.setPassword(passwordEncoder.encode(registrationDto.getPassword()));
+        user.setBalance(0.0); // Default balance
+        user.setRole(registrationDto.getRole() != null ? registrationDto.getRole() : first.transactions.model.UserRole.INVESTOR);
         
-        // Set default balance if not provided
-        if (user.getBalance() == null) {
-            user.setBalance(0.0);
-        }
+        // Save user
+        User savedUser = userRepository.save(user);
         
-        return userRepository.save(user);
+        // Return response DTO without password
+        return new UserResponseDto(
+            savedUser.getId(),
+            savedUser.getUsername(),
+            savedUser.getEmail(),
+            savedUser.getRole(),
+            savedUser.getBalance()
+        );
     }
 }

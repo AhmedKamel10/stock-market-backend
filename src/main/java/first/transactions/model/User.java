@@ -1,5 +1,4 @@
 package first.transactions.model;
-import first.transactions.model.Transfers;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -35,6 +34,10 @@ public class User {
     @Email(message = "Please provide a valid email address")
     private String email;
     
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserRole role = UserRole.INVESTOR;
+    
     @Column(nullable = false)
     private Double balance = 0.0;
     public User(){}
@@ -67,5 +70,8 @@ public class User {
 
     public Double getBalance() {return balance;}
     public void setBalance(Double balance) {this.balance = balance;}
+
+    public UserRole getRole() {return role;}
+    public void setRole(UserRole role) {this.role = role;}
 
 }
