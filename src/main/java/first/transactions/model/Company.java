@@ -9,7 +9,7 @@ public class Company {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "TICKER_SYMBOL", nullable = false, unique = true)
     private String tickerSymbol; // e.g. "AAPL"
 
     private String name;

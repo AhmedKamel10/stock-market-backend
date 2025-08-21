@@ -13,6 +13,7 @@ public class Investment {
     private Long userId;
     private String tickerSymbol;
     private Double amountUsd;  // <-- NEW field
+    private Double SharesPurchased;
     private LocalDateTime purchasedAt = LocalDateTime.now();
 
     // ---- Getters and Setters ----
@@ -54,5 +55,11 @@ public class Investment {
 
     public void setPurchasedAt(LocalDateTime purchasedAt) {
         this.purchasedAt = purchasedAt;
+    }
+    public Double getSharesPurchased() {
+        return SharesPurchased;
+    }
+    public void setSharesPurchased(Double SharesPurchased) {
+        this.SharesPurchased = SharesPurchased;
     }
 }
