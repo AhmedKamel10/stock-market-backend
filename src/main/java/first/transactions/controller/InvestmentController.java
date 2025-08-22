@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
 import first.transactions.service.StockPriceService;
+import first.transactions.service.PortfolioService;
 import java.util.List;
 
 @RestController
@@ -24,14 +25,18 @@ public class InvestmentController {
     private final CompanyRepository companyRepository;
     private final UserRepository userRepository;
     private final StockPriceService stockPriceService;
+    private final PortfolioService portfolioService;
 
     public InvestmentController(InvestmentRepository investmentRepository,
                                 CompanyRepository companyRepository,
-                                UserRepository userRepository, StockPriceService stockPriceService) {
+                                UserRepository userRepository, 
+                                StockPriceService stockPriceService,
+                                PortfolioService portfolioService) {
         this.investmentRepository = investmentRepository;
         this.companyRepository = companyRepository;
         this.userRepository = userRepository;
         this.stockPriceService = stockPriceService;
+        this.portfolioService = portfolioService;
     }
 
     @PostMapping("/invest/buy")
@@ -70,6 +75,9 @@ public class InvestmentController {
         investmentRepository.save(investment);
         company.setAvailableShares(company.getAvailableShares() - sharespurchased);
         companyRepository.save(company);
+        
+        portfolioService.updatePortfolioAfterInvestment(authentication.getName());
+        
         return ResponseEntity.ok(investment);
     }}
 
@@ -132,7 +140,10 @@ public class InvestmentController {
 
         // Update company available shares (hanzawed 3ashan 3amalna sale)
         company.setAvailableShares(company.getAvailableShares() + sharesToSell.longValue());
+        companyRepository.save(company);
 
+        // ✅ Update portfolio after successful sale
+        portfolioService.updatePortfolioAfterInvestment(authentication.getName());
 
         return ResponseEntity.ok("Sold " + sharesToSell + " shares of " + ticker + ". New stock price: " + company.getLastStockPrice());
     }

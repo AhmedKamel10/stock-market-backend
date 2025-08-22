@@ -39,6 +39,7 @@ public class SecurityConfig {
                         // Role-based URL access control
                         .requestMatchers("/investments/**").hasAnyRole("INVESTOR", "SUPER_ADMIN")
                         .requestMatchers("/transfers/**").hasAnyRole("INVESTOR", "SUPER_ADMIN")
+                        .requestMatchers("/portfolio/**").hasAnyRole("INVESTOR", "SUPER_ADMIN")
                         .requestMatchers("/users/**").hasAnyRole("INVESTOR", "COMPANY", "SUPER_ADMIN")
                         .anyRequest().authenticated() // 👈 secure everything else
                 )
