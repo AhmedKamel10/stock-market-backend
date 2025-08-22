@@ -35,8 +35,8 @@ public class SecurityConfig {
                                 "/swagger-ui.html"
                         ).permitAll()
                         .requestMatchers("/users/delete_user/**").permitAll()
+                        .requestMatchers("/companies/**").permitAll()
                         // Role-based URL access control
-                        .requestMatchers("/companies/**").hasAnyRole("COMPANY", "SUPER_ADMIN")
                         .requestMatchers("/investments/**").hasAnyRole("INVESTOR", "SUPER_ADMIN")
                         .requestMatchers("/transfers/**").hasAnyRole("INVESTOR", "SUPER_ADMIN")
                         .requestMatchers("/users/**").hasAnyRole("INVESTOR", "COMPANY", "SUPER_ADMIN")
@@ -61,7 +61,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173")); // your React dev server
+        configuration.setAllowedOrigins(List.of("*")); // your React dev server
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

@@ -9,7 +9,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/companies")
 @CrossOrigin("*")
-@PreAuthorize("hasRole('COMPANY') or hasRole('SUPER_ADMIN')")
 public class CompanyController {
     private final CompanyRepository companyRepository;
     public CompanyController(CompanyRepository companyRepository) {
