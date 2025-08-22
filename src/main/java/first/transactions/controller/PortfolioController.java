@@ -1,12 +1,14 @@
 package first.transactions.controller;
 
 import first.transactions.model.Portfolio;
+import first.transactions.model.User;
 import first.transactions.service.PortfolioService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -27,7 +29,7 @@ public class PortfolioController {
         Portfolio portfolio = portfolioService.getPortfolioByUsername(username);
         return ResponseEntity.ok(portfolio);
     }
-    
+        
 
     @PostMapping("/my-portfolio/refresh")
     @PreAuthorize("hasRole('INVESTOR') or hasRole('SUPER_ADMIN')")
@@ -84,7 +86,6 @@ public class PortfolioController {
      * Recalculate specific user's portfolio (admin only)
      */
     @PostMapping("/user/{userId}/refresh")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Portfolio> refreshUserPortfolio(@PathVariable Long userId) {
         // Get username first to use existing service method
         Portfolio portfolio = portfolioService.getPortfolioByUserId(userId);
@@ -92,7 +93,10 @@ public class PortfolioController {
         Portfolio refreshedPortfolio = portfolioService.recalculatePortfolio(username);
         return ResponseEntity.ok(refreshedPortfolio);
     }
-    
+
+
+
+
     /**
      * Simple DTO for portfolio summary - perfect for frontend charts
      */

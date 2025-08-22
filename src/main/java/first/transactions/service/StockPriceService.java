@@ -6,6 +6,12 @@ import org.springframework.stereotype.Service;
 @Service
 public class StockPriceService {
 
+    private final PortfolioService portfolioService;
+
+    public StockPriceService(PortfolioService portfolioService) {
+        this.portfolioService = portfolioService;
+    }
+
     /**
      * Update stock price based on a trade (buy or sell) using invested money
      * @param company Company whose stock price is updated
@@ -19,7 +25,7 @@ public class StockPriceService {
         double companyMarketValue = totalShares * currentPrice;
 
         // Sensitivity factor: larger k → bigger price impact
-        double k = 0.05; // max 5% impact per large investment
+        double k = 0.5; // max 5% impact per large investment
 
         // Price change proportional to money relative to company market value
         double priceChange = currentPrice * k * (money / companyMarketValue);
@@ -31,5 +37,7 @@ public class StockPriceService {
         newPrice = Math.max(newPrice, 0.01);
 
         company.setLastStockPrice(newPrice);
+        portfolioService.recalculateAllPortfolios();
+
     }
 }

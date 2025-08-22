@@ -10,7 +10,8 @@ import first.transactions.repository.UserRepository;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import first.transactions.service.PortfolioService;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -133,6 +134,21 @@ public class PortfolioService {
                 groupedInvestments.size()
             );
         }
+    }
+
+    public void recalculateAllPortfolios() {
+        List<User> users = userRepository.findAll();  // assuming you have this
+        List<Portfolio> updated = new ArrayList<>();
+
+        for (User user : users) {
+            String username = user.getUsername();
+            Portfolio portfolio = getPortfolioByUsername(username);
+            System.out.println("old profit of"+ username + "is" + portfolio.getProfit() );
+            recalculatePortfolio(portfolio);
+            System.out.println( "updated profit of " + username + "to" + portfolio.getProfit());
+
+        }
+
     }
     
     /**
