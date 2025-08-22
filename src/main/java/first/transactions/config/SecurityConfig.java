@@ -3,6 +3,7 @@ package first.transactions.config;
 import first.transactions.jwt.JwtFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -18,6 +19,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 @Configuration
+@EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
     @Bean
@@ -33,6 +35,11 @@ public class SecurityConfig {
                                 "/swagger-ui.html"
                         ).permitAll()
                         .requestMatchers("/users/delete_user/**").permitAll()
+                        // Role-based URL access control
+                        .requestMatchers("/companies/**").hasAnyRole("COMPANY", "SUPER_ADMIN")
+                        .requestMatchers("/investments/**").hasAnyRole("INVESTOR", "SUPER_ADMIN")
+                        .requestMatchers("/transfers/**").hasAnyRole("INVESTOR", "SUPER_ADMIN")
+                        .requestMatchers("/users/**").hasAnyRole("INVESTOR", "COMPANY", "SUPER_ADMIN")
                         .anyRequest().authenticated() // 👈 secure everything else
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

@@ -7,6 +7,7 @@ import first.transactions.repository.CompanyRepository;
 import first.transactions.repository.InvestmentRepository;
 import first.transactions.repository.UserRepository;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
@@ -16,6 +17,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/investments") // base path
 @CrossOrigin("*")
+@PreAuthorize("hasRole('INVESTOR') or hasRole('SUPER_ADMIN')")
 public class InvestmentController {
 
     private final InvestmentRepository investmentRepository;

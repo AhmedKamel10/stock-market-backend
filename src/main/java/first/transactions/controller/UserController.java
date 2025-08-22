@@ -2,6 +2,7 @@ package first.transactions.controller;
 
 import first.transactions.model.User;
 import first.transactions.repository.UserRepository;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
@@ -15,6 +16,7 @@ public class UserController {
         this.userRepository = userRepository;
     }
     @GetMapping
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public List<User> getUsers(){ return userRepository.findAll(); }
 
     @PostMapping("/add_balance")
@@ -36,6 +38,7 @@ public class UserController {
     }
 
     @DeleteMapping("/delete_user/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public String delete(@PathVariable("id") int id) {
         try {
             userRepository.deleteUserById(id);

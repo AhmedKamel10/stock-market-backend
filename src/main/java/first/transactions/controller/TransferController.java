@@ -6,7 +6,7 @@ import first.transactions.repository.TransferRepository;
 import first.transactions.repository.UserRepository;
 import first.transactions.dto.TransferRequest;
 import jakarta.transaction.Transactional;
-import oracle.jdbc.proxy.annotation.Post;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 
 @RestController
 @RequestMapping("/transfers")
+@PreAuthorize("hasRole('INVESTOR') or hasRole('SUPER_ADMIN')")
 public class TransferController {
     private final TransferRepository transferRepository;
     private final UserRepository userRepository;

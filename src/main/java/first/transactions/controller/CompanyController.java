@@ -2,14 +2,14 @@ package first.transactions.controller;
 
 import first.transactions.model.Company;
 import first.transactions.repository.CompanyRepository;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 @RestController
 @RequestMapping("/companies")
 @CrossOrigin("*")
+@PreAuthorize("hasRole('COMPANY') or hasRole('SUPER_ADMIN')")
 public class CompanyController {
     private final CompanyRepository companyRepository;
     public CompanyController(CompanyRepository companyRepository) {
@@ -20,4 +20,5 @@ public class CompanyController {
     public List<Company> getCompanies() {
         return companyRepository.findAll();
     }
+
 }
