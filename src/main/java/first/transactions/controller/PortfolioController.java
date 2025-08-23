@@ -29,16 +29,7 @@ public class PortfolioController {
         Portfolio portfolio = portfolioService.getPortfolioByUsername(username);
         return ResponseEntity.ok(portfolio);
     }
-        
 
-    @PostMapping("/my-portfolio/refresh")
-    @PreAuthorize("hasRole('INVESTOR') or hasRole('SUPER_ADMIN')")
-    public ResponseEntity<Portfolio> refreshMyPortfolio(Authentication authentication) {
-        String username = authentication.getName();
-        Portfolio portfolio = portfolioService.recalculatePortfolio(username);
-        return ResponseEntity.ok(portfolio);
-    }
-    
     /**
      * Get portfolio summary for charts (simplified JSON)
      * Returns only the key metrics needed for frontend charts
@@ -81,21 +72,6 @@ public class PortfolioController {
         List<Portfolio> portfolios = portfolioService.getAllPortfolios();
         return ResponseEntity.ok(portfolios);
     }
-    
-    /**
-     * Recalculate specific user's portfolio (admin only)
-     */
-    @PostMapping("/user/{userId}/refresh")
-    public ResponseEntity<Portfolio> refreshUserPortfolio(@PathVariable Long userId) {
-        // Get username first to use existing service method
-        Portfolio portfolio = portfolioService.getPortfolioByUserId(userId);
-        String username = portfolio.getUser().getUsername();
-        Portfolio refreshedPortfolio = portfolioService.recalculatePortfolio(username);
-        return ResponseEntity.ok(refreshedPortfolio);
-    }
-
-
-
 
     /**
      * Simple DTO for portfolio summary - perfect for frontend charts
