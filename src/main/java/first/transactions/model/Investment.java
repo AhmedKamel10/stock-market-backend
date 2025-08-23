@@ -15,6 +15,7 @@ public class Investment {
     private Double amountUsd;  // <-- NEW field
     private Double SharesPurchased;
     private LocalDateTime purchasedAt = LocalDateTime.now();
+    private Double profit;
 
     // ---- Getters and Setters ----
     public Long getId() {
@@ -61,5 +62,11 @@ public class Investment {
     }
     public void setSharesPurchased(Double SharesPurchased) {
         this.SharesPurchased = SharesPurchased;
+    }
+    public Double getProfit() {
+        return profit;
+    }
+    public void setProfit(Double profit) {
+        this.profit = profit;
     }
 }

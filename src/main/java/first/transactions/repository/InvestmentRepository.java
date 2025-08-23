@@ -7,5 +7,6 @@ import java.util.Optional;
 public interface InvestmentRepository extends JpaRepository<Investment, Long> {
     List<Investment> findByUserId(Long userId);
     Optional<Investment> findByUserIdAndTickerSymbol(Long userId, String tickerSymbol);
+    List<Investment> findBytickerSymbol(String tickerSymbol);
 
 }
