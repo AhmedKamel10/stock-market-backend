@@ -14,7 +14,7 @@ import org.springframework.security.core.Authentication;
 import first.transactions.service.StockPriceService;
 import first.transactions.service.PortfolioService;
 import java.util.List;
-
+import java.util.Optional;
 @RestController
 @RequestMapping("/investments") // base path
 @CrossOrigin("*")
@@ -45,42 +45,57 @@ public class InvestmentController {
             @RequestParam String ticker,
             @RequestParam Double amountUsd) {
 
-
         // Find the company by ticker
         Company company = companyRepository.findByTickerSymbol(ticker);
         if (company == null) {
             return ResponseEntity.badRequest().body("Ticker not found: " + ticker);
         }
 
-        // Calculate shares
-
-        stockPriceService.updateStockPrice(company, amountUsd);
-        double latestPrice = company.getLastStockPrice();
-        double sharesPurchased = amountUsd / latestPrice;
-        long sharespurchased = (long) sharesPurchased;
         // Get logged-in user
         User investor = userRepository.findByUsername(authentication.getName())
                 .orElseThrow(() -> new UsernameNotFoundException(authentication.getName()));
 
-        // Create investment
-        if(investor.getBalance() < amountUsd){
+        // Check balance
+        if (investor.getBalance() < amountUsd) {
             return ResponseEntity.badRequest().body("Not enough balance");
         }
-        else{
-        Investment investment = new Investment();
-        investment.setUserId(investor.getId());
-        investment.setTickerSymbol(ticker);
-        investment.setAmountUsd(amountUsd);
-        investment.setSharesPurchased(sharesPurchased);
-        investmentRepository.save(investment);
-        company.setAvailableShares(company.getAvailableShares() - sharespurchased);
-        companyRepository.save(company);
-        
-        portfolioService.updatePortfolioAfterInvestment(authentication.getName());
-        
-        return ResponseEntity.ok(investment);
-    }}
 
+        // Calculate shares
+        stockPriceService.updateStockPrice(company, amountUsd);
+        double latestPrice = company.getLastStockPrice();
+        double sharesPurchased = amountUsd / latestPrice;
+        long sharesToDeduct = (long) sharesPurchased;
+
+        // Deduct balance from user
+        investor.setBalance(investor.getBalance() - amountUsd);
+        userRepository.save(investor);
+
+        // Find existing investment for this user & ticker
+        investmentRepository.findByUserIdAndTickerSymbol(investor.getId(), ticker)
+                .ifPresentOrElse(investment -> {
+                    // Update existing investment
+                    investment.setAmountUsd(investment.getAmountUsd() + amountUsd);
+                    investment.setSharesPurchased(investment.getSharesPurchased() + sharesPurchased);
+                    investmentRepository.save(investment);
+                }, () -> {
+                    // Create new investment
+                    Investment newInvestment = new Investment();
+                    newInvestment.setUserId(investor.getId());
+                    newInvestment.setTickerSymbol(ticker);
+                    newInvestment.setAmountUsd(amountUsd);
+                    newInvestment.setSharesPurchased(sharesPurchased);
+                    investmentRepository.save(newInvestment);
+                });
+
+        // Update company shares
+        company.setAvailableShares(company.getAvailableShares() - sharesToDeduct);
+        companyRepository.save(company);
+
+        // Update portfolio
+        portfolioService.updatePortfolioAfterInvestment(authentication.getName());
+
+        return ResponseEntity.ok("Investment successful in " + ticker);
+    }
     @PostMapping("/invest/sell")
     public ResponseEntity<?> sell(
             Authentication authentication,
@@ -97,55 +112,51 @@ public class InvestmentController {
         User investor = userRepository.findByUsername(authentication.getName())
                 .orElseThrow(() -> new UsernameNotFoundException(authentication.getName()));
 
-        // Find all investments for this user & company
-        List<Investment> investments = investmentRepository.findByUserIdAndTickerSymbol(investor.getId(), ticker);
-        double totalShares = investments.stream().mapToDouble(Investment::getSharesPurchased).sum();
+        // Find existing investment for this user & company
+        Optional<Investment> investmentOpt =
+                investmentRepository.findByUserIdAndTickerSymbol(investor.getId(), ticker);
 
-        if (totalShares == 0.0) {
+        if (investmentOpt.isEmpty()) {
             return ResponseEntity.badRequest().body("No investment found for this ticker");
         }
+
+        Investment investment = investmentOpt.get();
+        double totalShares = investment.getSharesPurchased();
 
         if (sharesToSell > totalShares) {
             return ResponseEntity.badRequest().body("You don't have enough shares to sell");
         }
 
         double amountUsd = sharesToSell * company.getLastStockPrice();
-        //zawed el balance beta3 el investor 7asab el sale
+
+        // increase investor balance
         investor.setBalance(investor.getBalance() + amountUsd);
         userRepository.save(investor);
 
-        // update el stock price ba3d el sale (el mafrood yenzel fa bel negative)
+        // update stock price (down after sale)
         stockPriceService.updateStockPrice(company, -amountUsd);
 
-
-        //(FIFO)
-        double remainingSharesToSell = sharesToSell;
-        for (Investment inv : investments) {
-            if (remainingSharesToSell <= 0) break;
-
-            double sharesInThisInvestment = inv.getSharesPurchased();
-
-            if (sharesInThisInvestment <= remainingSharesToSell) {
-                // Sell all shares from this investment
-                remainingSharesToSell -= sharesInThisInvestment;
-                investmentRepository.delete(inv);
-            } else {
-                // Partial sale
-                inv.setSharesPurchased(sharesInThisInvestment - remainingSharesToSell);
-                inv.setAmountUsd(inv.getSharesPurchased() * company.getLastStockPrice());
-                investmentRepository.save(inv);
-                remainingSharesToSell = 0;
-            }
+        // update investment (partial or full sell)
+        if (sharesToSell.equals(totalShares)) {
+            // sold everything
+            investmentRepository.delete(investment);
+        } else {
+            // partial sale
+            double remainingShares = totalShares - sharesToSell;
+            investment.setSharesPurchased(remainingShares);
+            investment.setAmountUsd(remainingShares * company.getLastStockPrice());
+            investmentRepository.save(investment);
         }
 
-        // Update company available shares (hanzawed 3ashan 3amalna sale)
+        // update company available shares
         company.setAvailableShares(company.getAvailableShares() + sharesToSell.longValue());
         companyRepository.save(company);
 
-        // ✅ Update portfolio after successful sale
+        // update portfolio
         portfolioService.updatePortfolioAfterInvestment(authentication.getName());
 
-        return ResponseEntity.ok("Sold " + sharesToSell + " shares of " + ticker + ". New stock price: " + company.getLastStockPrice());
+        return ResponseEntity.ok("Sold " + sharesToSell + " shares of " + ticker +
+                ". New stock price: " + company.getLastStockPrice());
     }
 
 
