@@ -2,9 +2,14 @@ package first.transactions.service;
 
 import first.transactions.model.Company;
 import first.transactions.model.Investment;
+import first.transactions.repository.CompanyRepository;
 import first.transactions.repository.InvestmentRepository;
+import first.transactions.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import first.transactions.repository.StockHistoryRepository;
+import first.transactions.model.StockHistory;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -12,10 +17,11 @@ public class StockPriceService {
 
     private final PortfolioService portfolioService;
     private final InvestmentRepository investmentRepository;
-
-    public StockPriceService(PortfolioService portfolioService, InvestmentRepository investmentRepository) {
+    private final StockHistoryRepository stockHistoryRepository;
+    public StockPriceService(PortfolioService portfolioService, InvestmentRepository investmentRepository, StockHistoryRepository stockHistoryRepository, CompanyRepository companyRepository, UserRepository userRepository) {
         this.portfolioService = portfolioService;
         this.investmentRepository = investmentRepository;
+        this.stockHistoryRepository = stockHistoryRepository;
     }
 
     /**
@@ -43,6 +49,14 @@ public class StockPriceService {
         newPrice = Math.max(newPrice, 0.01);
 
         company.setLastStockPrice(newPrice);
+
+        // add the new price to the history (3ashan el chart)
+        StockHistory stockHistory = new StockHistory();
+        stockHistory.setPriceDate(LocalDateTime.now());
+        stockHistory.setStockPrice(newPrice);
+        stockHistory.setTickerSymbol(company.getTickerSymbol());
+        stockHistoryRepository.save(stockHistory);
+
 
         //e7seb el profit beta3 kol investment
         List<Investment> investments = investmentRepository.findBytickerSymbol(company.getTickerSymbol());
