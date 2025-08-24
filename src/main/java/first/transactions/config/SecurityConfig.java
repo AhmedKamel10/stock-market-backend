@@ -41,6 +41,8 @@ public class SecurityConfig {
                         .requestMatchers("/transfers/**").hasAnyRole("INVESTOR", "SUPER_ADMIN")
                         .requestMatchers("/portfolio/**").hasAnyRole("INVESTOR", "SUPER_ADMIN")
                         .requestMatchers("/users/**").hasAnyRole("INVESTOR", "COMPANY", "SUPER_ADMIN")
+                        .requestMatchers("/stock/**").permitAll()
+
                         .anyRequest().authenticated() // 👈 secure everything else
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
@@ -62,7 +64,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("*")); // your React dev server
+        configuration.setAllowedOrigins(List.of("http://localhost:5173")); // your React dev server
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
