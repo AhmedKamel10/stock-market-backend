@@ -1,43 +1,23 @@
 package first.transactions.controller;
 
-import first.transactions.model.Company;
 import first.transactions.model.Investment;
-import first.transactions.model.User;
-import first.transactions.repository.CompanyRepository;
-import first.transactions.repository.InvestmentRepository;
-import first.transactions.repository.UserRepository;
+import first.transactions.service.InvestmentService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
-import first.transactions.service.StockPriceService;
-import first.transactions.service.PortfolioService;
 import jakarta.validation.constraints.*;
 import java.util.List;
-import java.util.Optional;
 @RestController
 @RequestMapping("/investments") // base path
 @CrossOrigin("*")
 @PreAuthorize("hasRole('INVESTOR') or hasRole('SUPER_ADMIN')")
 public class InvestmentController {
 
-    private final InvestmentRepository investmentRepository;
-    private final CompanyRepository companyRepository;
-    private final UserRepository userRepository;
-    private final StockPriceService stockPriceService;
-    private final PortfolioService portfolioService;
+    private final InvestmentService investmentService;
 
-    public InvestmentController(InvestmentRepository investmentRepository,
-                                CompanyRepository companyRepository,
-                                UserRepository userRepository, 
-                                StockPriceService stockPriceService,
-                                PortfolioService portfolioService) {
-        this.investmentRepository = investmentRepository;
-        this.companyRepository = companyRepository;
-        this.userRepository = userRepository;
-        this.stockPriceService = stockPriceService;
-        this.portfolioService = portfolioService;
+    public InvestmentController(InvestmentService investmentService) {
+        this.investmentService = investmentService;
     }
 
     @PostMapping("/invest/buy")
@@ -52,134 +32,42 @@ public class InvestmentController {
             @DecimalMax(value = "1000000.0", message = "Maximum investment is $1,000,000")
             Double amountUsd) {
 
-        // Input validation passed, now find the company
-        Company company = companyRepository.findByTickerSymbol(ticker.toUpperCase());
-        if (company == null) {
-            return ResponseEntity.badRequest().body("Ticker not found: " + ticker);
+        // Delegate to service layer - clean separation of concerns
+        InvestmentService.InvestmentResult result = investmentService.buyStock(ticker, amountUsd, authentication.getName());
+        
+        if (result.isSuccess()) {
+            return ResponseEntity.ok(result.getMessage());
+        } else {
+            return ResponseEntity.badRequest().body(result.getMessage());
         }
-
-        // Get logged-in user
-        User investor = userRepository.findByUsername(authentication.getName())
-                .orElseThrow(() -> new UsernameNotFoundException(authentication.getName()));
-
-        // Check if user has sufficient balance
-        if (investor.getBalance() < amountUsd) {
-            return ResponseEntity.badRequest().body(String.format(
-                "Insufficient balance. Available: $%.2f, Required: $%.2f", 
-                investor.getBalance(), amountUsd));
-        }
-
-        // Additional business rule: Check if company has available shares
-        if (company.getAvailableShares() <= 0) {
-            return ResponseEntity.badRequest().body("No shares available for this company");
-        }
-
-        // Calculate shares
-        stockPriceService.updateStockPrice(company, amountUsd);
-        double latestPrice = company.getLastStockPrice();
-        double sharesPurchased = amountUsd / latestPrice;
-        long sharesToDeduct = (long) sharesPurchased;
-
-        // Deduct balance from user
-        investor.setBalance(investor.getBalance() - amountUsd);
-        userRepository.save(investor);
-
-        // Find existing investment for this user & ticker
-        investmentRepository.findByUserIdAndTickerSymbol(investor.getId(), ticker)
-                .ifPresentOrElse(investment -> {
-                    // Update existing investment
-                    investment.setAmountUsd(investment.getAmountUsd() + amountUsd);
-                    investment.setSharesPurchased(investment.getSharesPurchased() + sharesPurchased);
-                    investmentRepository.save(investment);
-                }, () -> {
-                    // Create new investment
-                    Investment newInvestment = new Investment();
-                    newInvestment.setUserId(investor.getId());
-                    newInvestment.setTickerSymbol(ticker);
-                    newInvestment.setAmountUsd(amountUsd);
-                    newInvestment.setSharesPurchased(sharesPurchased);
-                    investmentRepository.save(newInvestment);
-                });
-
-        // Update company shares
-        company.setAvailableShares(company.getAvailableShares() - sharesToDeduct);
-        companyRepository.save(company);
-
-        // Update portfolio
-        portfolioService.updatePortfolioAfterInvestment(authentication.getName());
-
-        return ResponseEntity.ok("Investment successful in " + ticker);
     }
     @PostMapping("/invest/sell")
     public ResponseEntity<?> sell(
             Authentication authentication,
-            @RequestParam String ticker,
-            @RequestParam Double sharesToSell) {
+            @RequestParam @NotBlank(message = "Ticker symbol is required")
+            @Pattern(regexp = "^[A-Z]{1,5}$", message = "Ticker must be 1-5 uppercase letters")
+            String ticker,
+            @RequestParam @NotNull(message = "Shares to sell is required")
+            @Positive(message = "Shares to sell must be positive")
+            @DecimalMin(value = "0.001", message = "Minimum shares to sell is 0.001")
+            @DecimalMax(value = "1000000.0", message = "Maximum shares to sell is 1,000,000")
+            Double sharesToSell) {
 
-        // Find the company by ticker
-        Company company = companyRepository.findByTickerSymbol(ticker);
-        if (company == null) {
-            return ResponseEntity.badRequest().body("Ticker not found: " + ticker);
-        }
-
-        // Get logged-in user
-        User investor = userRepository.findByUsername(authentication.getName())
-                .orElseThrow(() -> new UsernameNotFoundException(authentication.getName()));
-
-        // Find existing investment for this user & company
-        Optional<Investment> investmentOpt =
-                investmentRepository.findByUserIdAndTickerSymbol(investor.getId(), ticker);
-
-        if (investmentOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body("No investment found for this ticker");
-        }
-
-        Investment investment = investmentOpt.get();
-        double totalShares = investment.getSharesPurchased();
-
-        if (sharesToSell > totalShares) {
-            return ResponseEntity.badRequest().body("You don't have enough shares to sell");
-        }
-
-        double amountUsd = sharesToSell * company.getLastStockPrice();
-
-        // increase investor balance
-        investor.setBalance(investor.getBalance() + amountUsd);
-        userRepository.save(investor);
-
-        // update stock price (down after sale)
-        stockPriceService.updateStockPrice(company, -amountUsd);
-
-        // update investment (partial or full sell)
-        if (sharesToSell.equals(totalShares)) {
-            // sold everything
-            investmentRepository.delete(investment);
+        // Delegate to service layer - clean separation of concerns
+        InvestmentService.InvestmentResult result = investmentService.sellStock(ticker, sharesToSell, authentication.getName());
+        
+        if (result.isSuccess()) {
+            return ResponseEntity.ok(result.getMessage());
         } else {
-            // partial sale
-            double remainingShares = totalShares - sharesToSell;
-            investment.setSharesPurchased(remainingShares);
-            investment.setAmountUsd(remainingShares * company.getLastStockPrice());
-            investmentRepository.save(investment);
+            return ResponseEntity.badRequest().body(result.getMessage());
         }
-
-        // update company available shares
-        company.setAvailableShares(company.getAvailableShares() + sharesToSell.longValue());
-        companyRepository.save(company);
-
-        // update portfolio
-        portfolioService.updatePortfolioAfterInvestment(authentication.getName());
-
-        return ResponseEntity.ok("Sold " + sharesToSell + " shares of " + ticker +
-                ". New stock price: " + company.getLastStockPrice());
     }
 
 
     @GetMapping("/portfolio")
-    public ResponseEntity<?> getPortfolio(Authentication authentication) {
-        User investor = userRepository.findByUsername(authentication.getName())
-                .orElseThrow(() -> new UsernameNotFoundException(authentication.getName()));
-
-        List<Investment> investments = investmentRepository.findByUserId(investor.getId());
+    public ResponseEntity<List<Investment>> getPortfolio(Authentication authentication) {
+        // Delegate to service layer
+        List<Investment> investments = investmentService.getUserPortfolio(authentication.getName());
         return ResponseEntity.ok(investments);
     }
 }
