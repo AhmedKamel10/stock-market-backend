@@ -39,7 +39,7 @@ public class Investment {
     }
 
     public void setTickerSymbol(String tickerSymbol) {
-        this.tickerSymbol = tickerSymbol;
+        this.tickerSymbol = tickerSymbol.toUpperCase();
     }
 
     public Double getAmountUsd() {

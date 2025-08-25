@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
 import first.transactions.service.StockPriceService;
 import first.transactions.service.PortfolioService;
+import jakarta.validation.constraints.*;
 import java.util.List;
 import java.util.Optional;
 @RestController
@@ -42,11 +43,17 @@ public class InvestmentController {
     @PostMapping("/invest/buy")
     public ResponseEntity<?> invest(
             Authentication authentication,
-            @RequestParam String ticker,
-            @RequestParam Double amountUsd) {
+            @RequestParam @NotBlank(message = "Ticker symbol is required")
+            @Pattern(regexp = "^[A-Z]{1,5}$", message = "Ticker must be 1-5 uppercase letters")
+            String ticker,
+            @RequestParam @NotNull(message = "Investment amount is required")
+            @Positive(message = "Investment amount must be positive")
+            @DecimalMin(value = "1.0", message = "Minimum investment is $1.00")
+            @DecimalMax(value = "1000000.0", message = "Maximum investment is $1,000,000")
+            Double amountUsd) {
 
-        // Find the company by ticker
-        Company company = companyRepository.findByTickerSymbol(ticker);
+        // Input validation passed, now find the company
+        Company company = companyRepository.findByTickerSymbol(ticker.toUpperCase());
         if (company == null) {
             return ResponseEntity.badRequest().body("Ticker not found: " + ticker);
         }
@@ -55,9 +62,16 @@ public class InvestmentController {
         User investor = userRepository.findByUsername(authentication.getName())
                 .orElseThrow(() -> new UsernameNotFoundException(authentication.getName()));
 
-        // Check balance
+        // Check if user has sufficient balance
         if (investor.getBalance() < amountUsd) {
-            return ResponseEntity.badRequest().body("Not enough balance");
+            return ResponseEntity.badRequest().body(String.format(
+                "Insufficient balance. Available: $%.2f, Required: $%.2f", 
+                investor.getBalance(), amountUsd));
+        }
+
+        // Additional business rule: Check if company has available shares
+        if (company.getAvailableShares() <= 0) {
+            return ResponseEntity.badRequest().body("No shares available for this company");
         }
 
         // Calculate shares

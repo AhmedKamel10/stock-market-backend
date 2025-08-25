@@ -6,6 +6,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
+import org.springframework.http.ResponseEntity;
+import jakarta.validation.constraints.*;
+import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
@@ -20,14 +23,30 @@ public class UserController {
     public List<User> getUsers(){ return userRepository.findAll(); }
 
     @PostMapping("/add_balance")
-    public String addBalance(@RequestBody Double balance, Authentication authentication){
+    public ResponseEntity<String> addBalance(
+            @RequestBody @Valid @NotNull(message = "Balance amount is required") 
+            @Positive(message = "Balance amount must be positive")
+            @DecimalMax(value = "1000000.0", message = "Maximum balance addition is $1,000,000")
+            @DecimalMin(value = "0.01", message = "Minimum balance addition is $0.01")
+            Double balance, 
+            Authentication authentication){
+        
+        // Input validation passed, now process the request
         String username = authentication.getName();
-        User user = userRepository.findByUsername(username).orElseThrow(()->new UsernameNotFoundException(username));
-        double old_balance = user.getBalance();
-        user.setBalance(balance+ old_balance  );
-        userRepository.save(user);
-        return "user balance  updated";
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException(username));
+        
+        double oldBalance = user.getBalance();
+        double newBalance = oldBalance + balance;
+        
 
+        
+        user.setBalance(newBalance);
+        userRepository.save(user);
+        
+        return ResponseEntity.ok(String.format(
+                "Balance updated successfully. Added: $%.2f, New Balance: $%.2f", 
+                balance, newBalance));
     }
 
     @GetMapping("/user_profile")
