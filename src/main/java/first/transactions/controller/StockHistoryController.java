@@ -1,36 +1,58 @@
 package first.transactions.controller;
 
-import first.transactions.model.StockHistory;
-import first.transactions.repository.StockHistoryRepository;
+import first.transactions.service.StockHistoryService;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.constraints.*;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/stock-history")
 public class StockHistoryController {
 
-    private final StockHistoryRepository stockHistoryRepository;
+    private final StockHistoryService stockHistoryService;
 
-    public StockHistoryController(StockHistoryRepository stockHistoryRepository) {
-        this.stockHistoryRepository = stockHistoryRepository;
+    public StockHistoryController(StockHistoryService stockHistoryService) {
+        this.stockHistoryService = stockHistoryService;
     }
 
     // Get all history for a ticker
     @GetMapping("/{ticker}")
-    public List<StockHistory> getHistoryByTicker(@PathVariable String ticker) {
-        return stockHistoryRepository.findByTickerSymbol(ticker);
+    public ResponseEntity<?> getHistoryByTicker(
+            @PathVariable @NotBlank(message = "Ticker symbol is required")
+            @Pattern(regexp = "^[A-Z]{1,5}$", message = "Ticker must be 1-5 uppercase letters") 
+            String ticker) {
+        
+        // Delegate to service layer
+        StockHistoryService.StockHistoryResult result = stockHistoryService.getHistoryByTicker(ticker);
+        
+        if (result.isSuccess()) {
+            return ResponseEntity.ok(result.getData());
+        } else {
+            return ResponseEntity.badRequest().body(result.getErrorMessage());
+        }
     }
 
     // Get history for a ticker between two dates
     @GetMapping("/{ticker}/between")
-    public List<StockHistory> getHistoryBetweenDates(
-            @PathVariable String ticker,
-            @RequestParam("start") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
-            @RequestParam("end") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end
+    public ResponseEntity<?> getHistoryBetweenDates(
+            @PathVariable @NotBlank(message = "Ticker symbol is required")
+            @Pattern(regexp = "^[A-Z]{1,5}$", message = "Ticker must be 1-5 uppercase letters") 
+            String ticker,
+            @RequestParam("start") @NotNull(message = "Start date is required")
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
+            @RequestParam("end") @NotNull(message = "End date is required")
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end
     ) {
-        return stockHistoryRepository.findByTickerSymbolAndPriceDateBetween(ticker, start, end);
+        // Delegate to service layer - handles all validation and business rules
+        StockHistoryService.StockHistoryResult result = stockHistoryService.getHistoryBetweenDates(ticker, start, end);
+        
+        if (result.isSuccess()) {
+            return ResponseEntity.ok(result.getData());
+        } else {
+            return ResponseEntity.badRequest().body(result.getErrorMessage());
+        }
     }
 }
