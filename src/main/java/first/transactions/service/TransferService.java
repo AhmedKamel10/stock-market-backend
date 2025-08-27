@@ -44,6 +44,12 @@ public class TransferService {
         if (transfers.getRecipient() == null || transfers.getRecipient().trim().isEmpty()) {
             return TransferResult.error("Recipient is required");
         }
+        
+        // Validate recipient exists
+        String recipientUsername = transfers.getRecipient().trim();
+        if (!userRepository.findByUsername(recipientUsername).isPresent()) {
+            return TransferResult.error("Recipient user '" + recipientUsername + "' does not exist");
+        }
 
         // Check sufficient balance
         if (user.getBalance() < transfers.getAmount()) {
@@ -52,13 +58,23 @@ public class TransferService {
                 user.getBalance(), transfers.getAmount()));
         }
 
-        // Set user and deduct balance
-        transfers.setUser(user);
-        user.setBalance(user.getBalance() - transfers.getAmount());
+        // Get recipient user
+        User recipientUser = userRepository.findByUsername(recipientUsername)
+                .orElseThrow(() -> new UsernameNotFoundException("Recipient not found: " + recipientUsername));
 
-        // Save transfer and updated user
-        transferRepository.save(transfers);
+        // Update balances
+        user.setBalance(user.getBalance() - transfers.getAmount());
+        recipientUser.setBalance(recipientUser.getBalance() + transfers.getAmount());
+
+        // Create transaction records for both users
+        Transfers senderTx = new Transfers(transfers.getAmount(), "Sent to " + recipientUsername, user);
+        Transfers recipientTx = new Transfers(transfers.getAmount(), "Received from " + user.getUsername(), recipientUser);
+
+        // Save everything
+        transferRepository.save(senderTx);
+        transferRepository.save(recipientTx);
         userRepository.save(user);
+        userRepository.save(recipientUser);
 
         return TransferResult.success(String.format(
             "Transfer created for %s with amount: $%.2f", 

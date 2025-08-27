@@ -98,7 +98,7 @@ public class UserService {
             }
             
             return UserResult.success("User deleted successfully");
-            
+                    
         } catch (Exception e) {
             System.err.println("First delete attempt failed for user " + userId + ": " + e.getMessage());
 
@@ -122,6 +122,25 @@ public class UserService {
                 return UserResult.error("Failed to delete user. Please contact administrator.");
             }
         }
+    }
+
+    /**
+     * Check if a username exists
+     * @param username Username to check
+     * @return true if user exists, false otherwise
+     */
+    public boolean userExists(String username) {
+        return userRepository.findByUsername(username).isPresent();
+    }
+
+    /**
+     * Get user by username
+     * @param username Username to find
+     * @return User object
+     */
+    public User getUserByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
     }
 
 

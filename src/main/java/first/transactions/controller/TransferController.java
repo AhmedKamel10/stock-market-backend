@@ -2,6 +2,7 @@ package first.transactions.controller;
 
 import first.transactions.model.Transfers;
 import first.transactions.dto.TransferRequest;
+import first.transactions.dto.DeleteTransactionRequest;
 import first.transactions.service.TransferService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -40,9 +41,9 @@ public class TransferController {
     }
 
     @PostMapping("/delete_transaction")
-    public ResponseEntity<String> delete(@RequestBody Long id, Authentication authentication) {
+    public ResponseEntity<String> delete(@RequestBody DeleteTransactionRequest request, Authentication authentication) {
         // Delegate to service layer
-        TransferService.TransferResult result = transferService.deleteTransfer(id, authentication.getName());
+        TransferService.TransferResult result = transferService.deleteTransfer(request.getId(), authentication.getName());
         
         if (result.isSuccess()) {
             return ResponseEntity.ok(result.getMessage());
@@ -65,17 +66,17 @@ public class TransferController {
         double total = transferService.calculateTotalTransfers(authentication.getName());
         return ResponseEntity.ok(total);
     }
-    @PostMapping("/send_to_user")
-    public ResponseEntity<String> sendToUser(Authentication authentication, @RequestBody TransferRequest transferRequest) {
-        // Delegate to service layer
-        TransferService.TransferResult result = transferService.sendToUser(transferRequest, authentication.getName());
-        
-        if (result.isSuccess()) {
-            return ResponseEntity.ok(result.getMessage());
-        } else {
-            return ResponseEntity.badRequest().body(result.getMessage());
-        }
-    }
+//    @PostMapping("/send_to_user")
+//    public ResponseEntity<String> sendToUser(Authentication authentication, @RequestBody TransferRequest transferRequest) {
+//        // Delegate to service layer
+//        TransferService.TransferResult result = transferService.sendToUser(transferRequest, authentication.getName());
+//
+//        if (result.isSuccess()) {
+//            return ResponseEntity.ok(result.getMessage());
+//        } else {
+//            return ResponseEntity.badRequest().body(result.getMessage());
+//        }
+//    }
 
 
 

@@ -52,6 +52,16 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
+    @GetMapping("/profile/{username}")
+    public ResponseEntity<User> getUserByUsername(@PathVariable("username") String username) {
+        try {
+            User user = userService.getUserByUsername(username);
+            return ResponseEntity.ok(user);
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     @DeleteMapping("/delete_user/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<String> deleteUser(@PathVariable("id") int id) {

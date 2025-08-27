@@ -213,7 +213,7 @@ public class InvestmentService {
                 .toList();
         
         if (allInvestments.isEmpty()) {
-            // This shouldn't happen, but handle gracefully
+            // This shouldn't happen, but to be safe
             Investment newInvestment = new Investment();
             newInvestment.setUserId(userId);
             newInvestment.setTickerSymbol(tickerSymbol.toUpperCase());
