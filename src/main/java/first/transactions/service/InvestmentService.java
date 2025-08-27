@@ -76,21 +76,30 @@ public class InvestmentService {
         userRepository.save(investor);
 
         // Find existing investment for this user & ticker or create new one
-        investmentRepository.findByUserIdAndTickerSymbol(investor.getId(), ticker.toUpperCase())
-                .ifPresentOrElse(investment -> {
-                    // Update existing investment
-                    investment.setAmountUsd(investment.getAmountUsd() + amountUsd);
-                    investment.setSharesPurchased(investment.getSharesPurchased() + sharesPurchased);
-                    investmentRepository.save(investment);
-                }, () -> {
-                    // Create new investment
-                    Investment newInvestment = new Investment();
-                    newInvestment.setUserId(investor.getId());
-                    newInvestment.setTickerSymbol(ticker.toUpperCase());
-                    newInvestment.setAmountUsd(amountUsd);
-                    newInvestment.setSharesPurchased(sharesPurchased);
-                    investmentRepository.save(newInvestment);
-                });
+        try {
+            investmentRepository.findByUserIdAndTickerSymbol(investor.getId(), ticker.toUpperCase())
+                    .ifPresentOrElse(investment -> {
+                        // Update existing investment
+                        investment.setAmountUsd(investment.getAmountUsd() + amountUsd);
+                        investment.setSharesPurchased(investment.getSharesPurchased() + sharesPurchased);
+                        investmentRepository.save(investment);
+                    }, () -> {
+                        // Create new investment
+                        Investment newInvestment = new Investment();
+                        newInvestment.setUserId(investor.getId());
+                        newInvestment.setTickerSymbol(ticker.toUpperCase());
+                        newInvestment.setAmountUsd(amountUsd);
+                        newInvestment.setSharesPurchased(sharesPurchased);
+                        investmentRepository.save(newInvestment);
+                    });
+        } catch (org.springframework.dao.IncorrectResultSizeDataAccessException ex) {
+            // Handle duplicate records - consolidate them
+            Investment consolidatedInvestment = consolidateDuplicateInvestments(investor.getId(), ticker.toUpperCase());
+            // Update consolidated investment
+            consolidatedInvestment.setAmountUsd(consolidatedInvestment.getAmountUsd() + amountUsd);
+            consolidatedInvestment.setSharesPurchased(consolidatedInvestment.getSharesPurchased() + sharesPurchased);
+            investmentRepository.save(consolidatedInvestment);
+        }
 
         // Update company shares
         company.setAvailableShares(company.getAvailableShares() - sharesToDeduct);
@@ -121,8 +130,14 @@ public class InvestmentService {
                 .orElseThrow(() -> new UsernameNotFoundException(username));
 
         // Find existing investment for this user & company
-        Optional<Investment> investmentOpt =
-                investmentRepository.findByUserIdAndTickerSymbol(investor.getId(), ticker.toUpperCase());
+        Optional<Investment> investmentOpt;
+        try {
+            investmentOpt = investmentRepository.findByUserIdAndTickerSymbol(investor.getId(), ticker.toUpperCase());
+        } catch (org.springframework.dao.IncorrectResultSizeDataAccessException ex) {
+            // Handle duplicate records - consolidate them
+            Investment consolidatedInvestment = consolidateDuplicateInvestments(investor.getId(), ticker.toUpperCase());
+            investmentOpt = Optional.of(consolidatedInvestment);
+        }
 
         if (investmentOpt.isEmpty()) {
             return InvestmentResult.error(
@@ -182,6 +197,58 @@ public class InvestmentService {
                 .orElseThrow(() -> new UsernameNotFoundException(username));
         
         return investmentRepository.findByUserId(investor.getId());
+    }
+
+    /**
+     * Consolidates duplicate investment records for the same user and ticker symbol
+     * @param userId User ID
+     * @param tickerSymbol Ticker symbol
+     * @return Consolidated investment record
+     */
+    private Investment consolidateDuplicateInvestments(Long userId, String tickerSymbol) {
+        // Get all investments for this user and ticker
+        List<Investment> allInvestments = investmentRepository.findByUserId(userId)
+                .stream()
+                .filter(inv -> inv.getTickerSymbol().equalsIgnoreCase(tickerSymbol))
+                .toList();
+        
+        if (allInvestments.isEmpty()) {
+            // This shouldn't happen, but handle gracefully
+            Investment newInvestment = new Investment();
+            newInvestment.setUserId(userId);
+            newInvestment.setTickerSymbol(tickerSymbol.toUpperCase());
+            newInvestment.setAmountUsd(0.0);
+            newInvestment.setSharesPurchased(0.0);
+            return investmentRepository.save(newInvestment);
+        }
+        
+        if (allInvestments.size() == 1) {
+            // Only one record, return it
+            return allInvestments.get(0);
+        }
+        
+        // Multiple records found - consolidate them
+        Investment primaryInvestment = allInvestments.get(0);
+        double totalAmountUsd = 0.0;
+        double totalSharesPurchased = 0.0;
+        
+        // Sum up all investments
+        for (Investment inv : allInvestments) {
+            totalAmountUsd += inv.getAmountUsd() != null ? inv.getAmountUsd() : 0.0;
+            totalSharesPurchased += inv.getSharesPurchased() != null ? inv.getSharesPurchased() : 0.0;
+        }
+        
+        // Update primary investment with consolidated values
+        primaryInvestment.setAmountUsd(totalAmountUsd);
+        primaryInvestment.setSharesPurchased(totalSharesPurchased);
+        investmentRepository.save(primaryInvestment);
+        
+        // Delete duplicate records (keep the first one)
+        for (int i = 1; i < allInvestments.size(); i++) {
+            investmentRepository.delete(allInvestments.get(i));
+        }
+        
+        return primaryInvestment;
     }
 
     /**
